@@ -6,6 +6,7 @@ main.py - 微信公众号 AI 筛选推送系统入口
   python3 main.py --login      # 手动扫码登录/续期
   python3 main.py --test       # 测试模式：每个公众号取1篇
   python3 main.py --dry-run    # 只拉取和筛选，不推送
+  python3 main.py --push-only  # 只测试推送流程，不走抓取/评分
   python3 main.py --setup-cron # 根据 config.yaml 自动配置 crontab
   python3 main.py --remove-cron # 移除本项目的 crontab
 """
@@ -163,6 +164,71 @@ def save_scoring_excel(all_results: list[dict], date_str: str):
 
     wb.save(excel_file)
     logger.info(f"Scoring excel saved: {excel_file}")
+
+
+def push_only():
+    """仅测试推送流程，不走抓取和评分。"""
+    logger.info("Running push-only test")
+    config = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+    branding = config.get("branding", {})
+
+    sample_article = {
+        "title": "【推送测试】Wechat Radar 推送验证",
+        "account_name": "推送测试账号",
+        "url": "https://example.com/test-article",
+        "summary": "这是一次仅用于验证推送渠道是否工作的测试消息。",
+        "reason": "测试推送功能，确认 webhook 和通知配置正常。",
+        "tags": ["测试", "推送"],
+        "category": "测试",
+        "scores": {
+            "relevance": 9.5,
+            "depth": 8.0,
+            "info_density": 8.5,
+            "actionability": 7.5,
+        },
+        "final_score": 8.4,
+        "images": [],
+        "cover": "",
+    }
+
+    intro = "这是一条推送测试消息，仅用于验证通知渠道是否可用。"
+    articles = [sample_article]
+
+    configured_channels = []
+    if os.getenv("FEISHU_WEBHOOK"):
+        configured_channels.append(("Feishu", send_feishu))
+    if os.getenv("DINGTALK_WEBHOOK"):
+        configured_channels.append(("DingTalk", send_dingtalk))
+    if os.getenv("WECOM_WEBHOOK"):
+        configured_channels.append(("WeCom", send_wecom))
+    email_user = os.getenv("EMAIL_USER") or os.getenv("GMAIL_USER")
+    email_pass = os.getenv("EMAIL_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD")
+    if email_user and email_pass:
+        configured_channels.append(("Email", send_email))
+    if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
+        configured_channels.append(("Telegram", send_telegram))
+    if os.getenv("BARK_URL"):
+        configured_channels.append(("Bark", send_bark))
+    if os.getenv("SERVERCHAN_KEY"):
+        configured_channels.append(("ServerChan", send_serverchan))
+    if os.getenv("PUSHPLUS_TOKEN"):
+        configured_channels.append(("PushPlus", send_pushplus))
+
+    if not configured_channels:
+        logger.warning("No push channels configured. Please set at least one push channel in .env.")
+        return False
+
+    results = []
+    for name, func in configured_channels:
+        logger.info(f"Testing configured channel: {name}")
+        results.append(func(articles, intro=intro, branding=branding))
+
+    if any(results):
+        logger.info("Push-only test completed: at least one configured channel sent successfully.")
+        return True
+
+    logger.warning("Push-only test finished: no configured channels were successfully sent.")
+    return False
 
 
 # ──────────────────────────────────────────────
@@ -605,6 +671,7 @@ if __name__ == "__main__":
     parser.add_argument("--login", action="store_true", help="手动扫码登录/续期")
     parser.add_argument("--test", action="store_true", help="测试模式：每个公众号取1篇")
     parser.add_argument("--dry-run", action="store_true", help="只筛选不推送")
+    parser.add_argument("--push-only", action="store_true", help="只测试推送流程，不走抓取/评分")
     parser.add_argument("--setup-cron", action="store_true", help="根据 config.yaml 自动配置 crontab")
     parser.add_argument("--remove-cron", action="store_true", help="移除本项目的 crontab")
     args = parser.parse_args()
@@ -620,5 +687,9 @@ if __name__ == "__main__":
     if args.remove_cron:
         remove_cron()
         sys.exit(0)
+
+    if args.push_only:
+        success = push_only()
+        sys.exit(0 if success else 1)
 
     run(test_mode=args.test, dry_run=args.dry_run)
