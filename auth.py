@@ -190,29 +190,54 @@ def _do_login(session: requests.Session, uuid: str) -> tuple[Optional[str], str,
             timeout=15,
             allow_redirects=False,
         )
-        data = resp.json()
+        
+        # Debug: 记录响应信息
+        logger.info(f"Login response status code: {resp.status_code}")
+        logger.debug(f"Login response headers: {resp.headers}")
+        
+        try:
+            data = resp.json()
+            logger.debug(f"Login response body: {json.dumps(data, ensure_ascii=False, indent=2)}")
+        except Exception as json_err:
+            logger.error(f"Failed to parse response as JSON: {json_err}")
+            logger.debug(f"Raw response text: {resp.text[:500]}")
+            return None, "", 0
 
         # redirect_url 里包含 token 参数
         redirect_url = data.get("redirect_url", "")
+        logger.debug(f"redirect_url: {redirect_url}")
+        
         token = None
         if redirect_url:
             parsed = urlparse(redirect_url)
             qs = parse_qs(parsed.query)
             token = (qs.get("token") or [""])[0]
+            logger.debug(f"Token from redirect_url: {token[:20]}..." if token else "Token from redirect_url: None")
 
         if not token:
             # 有时 token 直接在响应体里
             token = str(data.get("token", ""))
+            logger.debug(f"Token from response body: {token[:20]}..." if token else "Token from response body: None")
 
+        logger.info(f"Final token obtained: {bool(token)}")
+        
         # 拼 cookie 字符串
         cookie_str = "; ".join(f"{c.name}={c.value}" for c in session.cookies)
+        logger.debug(f"Cookies count: {len(list(session.cookies))}")
+        for c in session.cookies:
+            c_value = str(c.value) if c.value else ""
+            if len(c_value) > 30:
+                logger.debug(f"  Cookie: {c.name}={c_value[:30]}...")
+            else:
+                logger.debug(f"  Cookie: {c.name}={c_value}")
 
         # 从 slave_sid cookie 拿过期时间（fallback: 72小时后）
         expiry = _parse_cookie_expiry(session.cookies) or int(time.time() + 72 * 3600)
+        logger.info(f"Token expiry: {datetime.fromtimestamp(expiry).strftime('%Y-%m-%d %H:%M:%S')}")
 
         return token or None, cookie_str, expiry
     except Exception as e:
-        logger.error(f"do_login error: {e}")
+        logger.error(f"do_login error: {e}", exc_info=True)
         return None, "", 0
 
 
