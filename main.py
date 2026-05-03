@@ -763,6 +763,15 @@ def setup_cron(config_path: str = None):
     schedule_config = config.get("schedule", {})
     cron_list = schedule_config.get("cron", [])
 
+    # 如果 .local 文件缺少 schedule.cron，回退到 config.yaml
+    if not cron_list and config_file.name == "config.yaml.local":
+        fallback = _script_dir / "config.yaml"
+        if fallback.exists():
+            logger.info("config.yaml.local 中无 schedule.cron，回退到 config.yaml")
+            config = yaml.safe_load(fallback.read_text(encoding="utf-8"))
+            schedule_config = config.get("schedule", {})
+            cron_list = schedule_config.get("cron", [])
+
     if not cron_list:
         logger.error("config.yaml 中没有配置 schedule.cron")
         sys.exit(1)
