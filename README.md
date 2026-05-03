@@ -20,7 +20,7 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
 ### 方式一：一键安装（推荐）
 
 ```bash
-git clone https://github.com/cathyzhang0905/wechat-radar.git
+git clone git@github.com:cathyzhang0905/wechat-radar.git
 cd wechat-radar
 ./setup.sh
 ```
@@ -31,7 +31,7 @@ cd wechat-radar
 
 ```bash
 # 1. 安装依赖
-git clone https://github.com/cathyzhang0905/wechat-radar.git
+git clone git@github.com:cathyzhang0905/wechat-radar.git
 cd wechat-radar
 python3 -m venv .venv
 source .venv/bin/activate
