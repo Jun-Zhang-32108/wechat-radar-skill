@@ -62,15 +62,16 @@ profile:
     - AI 技术趋势
     - 产品设计
     - 创业与商业化
+    - 金融与投资
     # 添加更多你感兴趣的领域...
   preferences:
     prefer_practical: true       # 偏好实操内容
     avoid_marketing_hype: true   # 过滤营销软文
   custom: |
     # 在这里补充更具体的偏好，帮助 AI 更精准地评分：
-    # - 特别想看：xxx
-    # - 不想看：xxx
-    # - 关注的具体领域：xxx
+    # - 特别想看：
+    # - 不想看：泛泛而谈的内容/水军
+    # - 关注的具体领域：科技/投资
 
 preferences:
   # 合并模式: memory_only | custom_only | memory+custom

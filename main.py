@@ -166,10 +166,11 @@ def save_scoring_excel(all_results: list[dict], date_str: str):
     logger.info(f"Scoring excel saved: {excel_file}")
 
 
-def push_only():
+def push_only(config_path: str = None):
     """仅测试推送流程，不走抓取和评分。"""
     logger.info("Running push-only test")
-    config = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+    config_file = Path(config_path) if config_path else CONFIG_FILE
+    config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
     branding = config.get("branding", {})
 
     sample_article = {
@@ -235,7 +236,7 @@ def push_only():
 # 主流程
 # ──────────────────────────────────────────────
 
-def run(test_mode: bool = False, dry_run: bool = False):
+def run(test_mode: bool = False, dry_run: bool = False, config_path: str = None):
     logger.info(f"Starting wechat-digest [test={test_mode}, dry_run={dry_run}]")
 
     # 0. 检查 token
@@ -254,7 +255,8 @@ def run(test_mode: bool = False, dry_run: bool = False):
         _notify_token_expiring_soon(remaining_hours)
 
     # 1. 读配置
-    config = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+    config_file = Path(config_path) if config_path else CONFIG_FILE
+    config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
     accounts = config.get("accounts", [])
     scoring_config = config.get("scoring", {})
     min_score = scoring_config.get("min_score", 5)
@@ -752,11 +754,12 @@ def _send_alert(alert_text: str):
 _CRON_TAG = "# wechat-radar"
 
 
-def setup_cron():
+def setup_cron(config_path: str = None):
     """根据 config.yaml 中的 schedule.cron 自动配置 crontab"""
     import subprocess
 
-    config = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+    config_file = Path(config_path) if config_path else CONFIG_FILE
+    config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
     schedule_config = config.get("schedule", {})
     cron_list = schedule_config.get("cron", [])
 
@@ -839,6 +842,7 @@ if __name__ == "__main__":
     parser.add_argument("--push-only", action="store_true", help="只测试推送流程，不走抓取/评分")
     parser.add_argument("--setup-cron", action="store_true", help="根据 config.yaml 自动配置 crontab")
     parser.add_argument("--remove-cron", action="store_true", help="移除本项目的 crontab")
+    parser.add_argument("--config", type=str, default=None, help="指定配置文件路径（默认：config.yaml.local 或 config.yaml）")
     args = parser.parse_args()
 
     if args.login:
@@ -846,7 +850,7 @@ if __name__ == "__main__":
         sys.exit(0 if success else 1)
 
     if args.setup_cron:
-        setup_cron()
+        setup_cron(config_path=args.config)
         sys.exit(0)
 
     if args.remove_cron:
@@ -854,7 +858,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.push_only:
-        success = push_only()
+        success = push_only(config_path=args.config)
         sys.exit(0 if success else 1)
 
-    run(test_mode=args.test, dry_run=args.dry_run)
+    run(test_mode=args.test, dry_run=args.dry_run, config_path=args.config)

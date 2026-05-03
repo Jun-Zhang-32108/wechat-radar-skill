@@ -3,7 +3,8 @@ skill_adapt.py - wechat-radar Skill 适配层 CLI
 
 用法:
   python3 skill_adapt.py check-token           # 检查 token 是否有效
-  python3 skill_adapt.py run --config xxx.yaml # 拉取→评分→输出 JSON
+  python3 skill_adapt.py run                   # 拉取→评分→输出 JSON（默认读取项目目录 config.yaml）
+  python3 skill_adapt.py run --config xxx.yaml # 指定配置文件运行
 """
 import argparse
 import json
@@ -13,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from auth import load_token, is_token_valid, login_step1_get_qr, login_step2_complete, load_session
+from auth import load_token, is_token_valid
 from main import run_skill_mode
 
 logging.basicConfig(
@@ -39,12 +40,21 @@ def cmd_check_token():
     return 0 if valid else 1
 
 
-def cmd_run(config_path: str, test_mode: bool = False):
-    """读取配置和 token，执行 skill 模式，输出 JSON 结果到 stdout。"""
-    config_file = Path(config_path)
+def cmd_run(config_path: str = None, test_mode: bool = False):
+    """读取配置和 token，执行 skill 模式，输出 JSON 结果到 stdout。
+
+    如果未指定 config_path，则默认读取项目目录下的 config.yaml（或优先使用 config.yaml.local）。
+    """
+    if config_path:
+        config_file = Path(config_path)
+    else:
+        # 默认读取项目目录下的 config.yaml.local（优先）或 config.yaml
+        local_cfg = SCRIPT_DIR / "config.yaml.local"
+        config_file = local_cfg if local_cfg.exists() else SCRIPT_DIR / "config.yaml"
+
     if not config_file.exists():
-        logger.error(f"Config file not found: {config_path}")
-        print(json.dumps({"error": f"Config file not found: {config_path}"}, ensure_ascii=False))
+        logger.error(f"Config file not found: {config_file}")
+        print(json.dumps({"error": f"Config file not found: {config_file}"}, ensure_ascii=False))
         return 1
 
     config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
@@ -74,7 +84,11 @@ def main():
     sub.add_parser("check-token", help="Check if local token is valid")
 
     run_parser = sub.add_parser("run", help="Run fetch+score and output JSON")
-    run_parser.add_argument("--config", required=True, help="Path to config.yaml")
+    run_parser.add_argument(
+        "--config",
+        required=False,
+        help="Path to config.yaml (default: project_dir/config.yaml.local or config.yaml)",
+    )
     run_parser.add_argument("--test", action="store_true", help="Test mode (1 article per account)")
 
     args = parser.parse_args()
