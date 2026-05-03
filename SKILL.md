@@ -21,36 +21,32 @@ AI 驱动的微信公众号智能日报。自动抓取、多维度评分、个�
 
 ## 安装
 
-### 方式一：Hermes Skill 安装（推荐）
+### 方式一：Hermes Skill 一键安装（推荐）
 
 如果你使用 [Hermes Agent](https://github.com/cathyzhang0905/hermes-agent)，可以直接安装为 skill：
 
 ```bash
 # 1. 克隆仓库到本地
-git clone https://github.com/cathyzhang0905/wechat-radar.git ~/projects/wechat-radar-skill
+git clone https://github.com/Jun-Zhang-32108/wechat-radar-skill.git ~/projects/wechat-radar-skill
 
-# 2. 安装到 Hermes skill 目录
-mkdir -p ~/.hermes/skills/wechat-radar
-cp ~/projects/wechat-radar-skill/*.py ~/.hermes/skills/wechat-radar/
-cp ~/projects/wechat-radar-skill/*.json ~/.hermes/skills/wechat-radar/
-cp ~/projects/wechat-radar-skill/requirements.txt ~/.hermes/skills/wechat-radar/
-cp ~/projects/wechat-radar-skill/SKILL.md ~/.hermes/skills/wechat-radar/
-
-# 3. 安装依赖
+# 2. 一键安装到 Hermes skill 目录
 cd ~/projects/wechat-radar-skill
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install beautifulsoup4 lxml pyyaml
+./install-skill.sh
 ```
+
+脚本会自动：
+- 创建 `~/.hermes/skills/wechat-radar` 目录
+- 复制所有必要的 Python 文件和配置文件
+- 处理权限问题
+- 提示下一步配置步骤
 
 ### 方式二：独立使用
 
 不依赖 Hermes，直接作为独立工具使用：
 
 ```bash
-git clone https://github.com/cathyzhang0905/wechat-radar.git
-cd wechat-radar
+git clone https://github.com/Jun-Zhang-32108/wechat-radar-skill.git
+cd wechat-radar-skill
 ./setup.sh
 ```
 
@@ -58,7 +54,7 @@ cd wechat-radar
 
 ## 前置要求
 
-1. **Python 3.8+**
+1. **Python 3.10+**（需要 f-string、match 语句等新特性）
 2. **微信公众号账号**：需要一个微信公众号（免费的个人订阅号即可）。前往 [微信公众平台](https://mp.weixin.qq.com/) 注册，用个人微信即可完成，无需企业资质。
 3. **AI 模型 API Key**：OpenAI / DeepSeek / 硅基流动等任一服务商的 API Key
 

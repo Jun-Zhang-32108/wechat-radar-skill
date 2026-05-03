@@ -2,13 +2,14 @@
 main.py - 微信公众号 AI 筛选推送系统入口
 
 用法:
-  python3 main.py              # 正常运行
-  python3 main.py --login      # 手动扫码登录/续期
-  python3 main.py --test       # 测试模式：每个公众号取1篇
-  python3 main.py --dry-run    # 只拉取和筛选，不推送
-  python3 main.py --push-only  # 只测试推送流程，不走抓取/评分
-  python3 main.py --setup-cron # 根据 config.yaml 自动配置 crontab
-  python3 main.py --remove-cron # 移除本项目的 crontab
+  python3 main.py                          # 正常运行
+  python3 main.py --login                  # 手动扫码登录/续期
+  python3 main.py --test                   # 测试模式：每个公众号取1篇
+  python3 main.py --dry-run                # 只拉取和筛选，不推送
+  python3 main.py --push-only              # 只测试推送流程，不走抓取/评分
+  python3 main.py --config config.yaml     # 指定配置文件路径
+  python3 main.py --setup-cron             # 根据 config.yaml 自动配置 crontab
+  python3 main.py --remove-cron            # 移除本项目的 crontab
 """
 import argparse
 import json

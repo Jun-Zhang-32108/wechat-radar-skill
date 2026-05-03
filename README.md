@@ -20,8 +20,8 @@ AI 驱动的微信公众号智能日报 — 自动抓取、多维度评分、个
 ### 方式一：一键安装（推荐）
 
 ```bash
-git clone git@github.com:cathyzhang0905/wechat-radar.git
-cd wechat-radar
+git clone git@github.com:Jun-Zhang-32108/wechat-radar-skill.git
+cd wechat-radar-skill
 ./setup.sh
 ```
 
@@ -31,8 +31,8 @@ cd wechat-radar
 
 ```bash
 # 1. 安装依赖
-git clone git@github.com:cathyzhang0905/wechat-radar.git
-cd wechat-radar
+git clone git@github.com:Jun-Zhang-32108/wechat-radar-skill.git
+cd wechat-radar-skill
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -166,18 +166,21 @@ python3 main.py --remove-cron  # 移除
 
 ```
 wechat-radar/
-├── main.py          主入口（--test / --dry-run / --login / --setup-cron）
-├── config.yaml      所有可配置项（均有默认值）
-├── fetcher.py       微信 API 拉取 + 缓存
-├── filter.py        AI 多维度评分 + 开场白生成
-├── prefilter.py     规则预过滤
-├── dedup.py         跨源去重
-├── notifier.py      多渠道推送（8 种）
-├── auth.py          微信扫码登录 / token 管理
-├── setup.sh         一键安装配置脚本
-├── assets/          邮件 banner 等静态资源
-├── .env.example     环境变量模板（含详细配置说明）
-└── requirements.txt 依赖列表
+├── main.py              主入口（--test / --dry-run / --login / --setup-cron / --config）
+├── skill_adapt.py       Hermes Agent 适配层（check-token / run 命令）
+├── config.yaml          所有可配置项（均有默认值）
+├── fetcher.py           微信 API 拉取 + 缓存
+├── filter.py            AI 多维度评分 + 开场白生成
+├── prefilter.py         规则预过滤
+├── dedup.py             跨源去重
+├── notifier.py          多渠道推送（8 种）
+├── auth.py              微信扫码登录 / token 管理
+├── setup.sh             一键安装配置脚本（独立使用）
+├── install-skill.sh     一键安装 Skill 脚本（Hermes 集成）
+├── SKILL.md             Skill 文档（含快速开始）
+├── assets/              邮件 banner 等静态资源
+├── .env.example         环境变量模板（含详细配置说明）
+└── requirements.txt     依赖列表
 ```
 
 ## Roadmap
