@@ -8,6 +8,7 @@ import re
 import subprocess
 import tempfile
 import time
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from http.cookiejar import CookieJar
 from pathlib import Path
@@ -63,7 +64,119 @@ def is_token_valid(token_data: Optional[dict]) -> bool:
 
 
 # ──────────────────────────────────────────────
-# 登录流程
+# 扫码登录 Session（支持序列化 / 持久化）
+# ──────────────────────────────────────────────
+
+@dataclass
+class LoginSession:
+    """扫码登录中间状态，可序列化保存供外部程序轮询使用。"""
+    uuid: str
+    cookies: dict          # {name: value}
+    qr_url: str            # 二维码图片 URL（或直接 base64，这里用下载路径）
+    created_at: float      # timestamp
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "LoginSession":
+        return cls(**data)
+
+
+def save_session(session: LoginSession, path: Optional[Path] = None) -> Path:
+    """将 LoginSession 保存为 JSON 文件（默认 token.json 同级目录的 login_session.json）"""
+    path = path or (_SCRIPT_DIR / "login_session.json")
+    path.write_text(json.dumps(session.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info(f"LoginSession saved to {path}")
+    return path
+
+
+def load_session(path: Optional[Path] = None) -> Optional[LoginSession]:
+    """读取 LoginSession，文件不存在或格式错误返回 None"""
+    path = path or (_SCRIPT_DIR / "login_session.json")
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return LoginSession.from_dict(data)
+    except Exception as e:
+        logger.warning(f"Cannot load LoginSession: {e}")
+        return None
+
+
+def session_to_requests(sess: LoginSession) -> requests.Session:
+    """从 LoginSession 重建一个带 cookie 的 requests.Session"""
+    session = requests.Session()
+    session.headers.update(HEADERS_BASE)
+    for name, value in sess.cookies.items():
+        session.cookies.set(name, value)
+    return session
+
+
+# ──────────────────────────────────────────────
+# 两步扫码登录（供外部 / Skill 调用）
+# ──────────────────────────────────────────────
+
+def login_step1_get_qr() -> tuple[Optional[LoginSession], Optional[Path]]:
+    """
+    第一步：获取 uuid 并下载二维码。
+    返回 (LoginSession, qr_image_path) 或 (None, None)。
+    调用方应保存 LoginSession 并展示二维码给用户扫描。
+    """
+    session = requests.Session()
+    session.headers.update(HEADERS_BASE)
+
+    uuid = _start_login(session)
+    if not uuid:
+        logger.error("Failed to get login uuid")
+        return None, None
+    logger.info(f"Got uuid: {uuid}")
+
+    qr_path = _download_qrcode(session, uuid)
+    if not qr_path:
+        logger.error("Failed to download QR code")
+        return None, None
+
+    # 提取 cookies 为 dict
+    cookies = {c.name: c.value for c in session.cookies}
+    login_sess = LoginSession(
+        uuid=uuid,
+        cookies=cookies,
+        qr_url=str(qr_path),
+        created_at=time.time(),
+    )
+    save_session(login_sess)
+    return login_sess, qr_path
+
+
+def login_step2_complete(login_sess: LoginSession, timeout: int = 180) -> tuple[Optional[str], str, int]:
+    """
+    第二步：用户扫码后，完成登录并获取 token。
+    传入 login_step1_get_qr 返回的 LoginSession。
+    返回 (token, cookies, expiry_timestamp)；token 为 None 表示失败。
+    """
+    session = session_to_requests(login_sess)
+    logger.info(f"Polling scan status for uuid={login_sess.uuid}...")
+    scan_ok = _poll_scan(session, login_sess.uuid, timeout=timeout)
+    if not scan_ok:
+        logger.error("Scan timeout or failed")
+        return None, "", 0
+
+    token, cookies, expiry = _do_login(session, login_sess.uuid)
+    if not token:
+        logger.error("Failed to get token after scan")
+        return None, "", 0
+
+    save_token(token, cookies, expiry)
+    # 清理 session 文件
+    sess_path = _SCRIPT_DIR / "login_session.json"
+    if sess_path.exists():
+        sess_path.unlink()
+    return token, cookies, expiry
+
+
+# ──────────────────────────────────────────────
+# 登录流程（兼容旧版 CLI 一键登录）
 # ──────────────────────────────────────────────
 
 def login() -> bool:

@@ -460,6 +460,171 @@ def run(test_mode: bool = False, dry_run: bool = False):
     return push_articles
 
 
+def run_skill_mode(config: dict, token_data: dict, test_mode: bool = False) -> list[dict]:
+    """
+    Skill 模式入口：接收外部配置和 token，拉取→过滤→评分→返回结果，不推送、不写 state。
+    返回推荐文章列表（list[dict]），每篇包含 title/account_name/url/summary/reason/tags/category/scores/final_score/images/cover。
+    """
+    logger.info(f"Starting wechat-radar skill mode [test={test_mode}]")
+
+    if not is_token_valid(token_data):
+        logger.error("Token missing or expired")
+        return []
+
+    accounts = config.get("accounts", [])
+    scoring_config = config.get("scoring", {})
+    min_score = scoring_config.get("min_score", 5)
+    top_n = scoring_config.get("top_n", 10)
+    fetch_config = config.get("fetch", {})
+    fetch_hours = fetch_config.get("hours", 24)
+    ai_config = config.get("ai", {})
+    min_content_length = ai_config.get("min_content_length", 50)
+
+    if not accounts:
+        logger.error("No accounts in config")
+        return []
+
+    logger.info(f"Accounts: {len(accounts)} | fetch_hours={fetch_hours} | min_score={min_score} | top_n={top_n}")
+
+    # 拉取文章（skill 模式下不读/写 state，每次全量拉取）
+    all_articles = []
+
+    import fetcher as _fetcher_mod
+    _fetcher_mod.API_INTERVAL = fetch_config.get("request_interval", 1.5)
+
+    for account_name in accounts:
+        logger.info(f"\n── Fetching: {account_name} ──")
+
+        fakeid = get_fakeid(account_name)
+        if not fakeid:
+            logger.warning(f"Skipping {account_name}: cannot find fakeid")
+            continue
+
+        articles = get_recent_articles(fakeid, account_name, hours=fetch_hours)
+
+        if test_mode:
+            articles = articles[:1]
+
+        for art in articles:
+            url = art["url"]
+            if not url:
+                continue
+
+            # Step 0: 规则预过滤（标题级）
+            if should_skip(art["title"], "", config):
+                logger.info(f"  Skip (prefilter/title): {art['title'][:40]}")
+                continue
+
+            logger.info(f"  Fetching content: {art['title'][:50]}")
+            try:
+                content_data = get_article_content(url)
+            except TokenExpiredError:
+                logger.error("Token expired mid-run")
+                return []
+
+            text = content_data.get("text", "")
+            images = content_data.get("images", [])
+
+            # Step 0: 规则预过滤（标题+正文）
+            if should_skip(art["title"], text, config):
+                logger.info(f"  Skip (prefilter/content): {art['title'][:40]}")
+                continue
+
+            all_articles.append({
+                **art,
+                "text": text,
+                "images": images,
+                "cover": art.get("cover") or (images[0] if images else ""),
+            })
+
+    logger.info(f"\nAfter prefilter: {len(all_articles)} articles")
+
+    # Step 1: 跨源去重
+    dedup_threshold = config.get("dedup", {}).get("title_threshold", 0.5)
+    all_articles = deduplicate(all_articles, threshold=dedup_threshold)
+    logger.info(f"After dedup: {len(all_articles)} articles")
+
+    # Step 2: AI 评分
+    all_results = []
+    scoring_dims = config.get("scoring", {}).get("dimensions") or {}
+    zero_scores = {name: 0 for name in scoring_dims} if scoring_dims else {"relevance": 0, "depth": 0, "info_density": 0, "actionability": 0}
+
+    for art in all_articles:
+        if len((art.get("text") or "").strip()) < min_content_length:
+            logger.info(f"  Skip AI scoring (content too short): {art['title'][:50]}")
+            all_results.append({
+                "title": art["title"],
+                "account_name": art.get("account_name", ""),
+                "url": art.get("url", ""),
+                "is_ad": False,
+                "scores": dict(zero_scores),
+                "summary": "正文抓取失败",
+                "reason": "",
+                "tags": [],
+                "category": "其他",
+                "final_score": 0.0,
+            })
+            continue
+
+        logger.info(f"  AI scoring: {art['title'][:50]}")
+        result = filter_article(art["title"], art["text"], config)
+
+        final_score = result["final_score"]
+        logger.info(
+            f"  → score={final_score:.1f} | ad={result['is_ad']} | "
+            f"cat={result['category']} | {result.get('reason', '')[:40]}"
+        )
+
+        all_results.append({
+            "title": art["title"],
+            "account_name": art.get("account_name", ""),
+            "url": art.get("url", ""),
+            **result,
+        })
+
+    # Step 3: 排序 + Top-N
+    qualified = [
+        r for r in all_results
+        if not r["is_ad"] and r["final_score"] >= min_score
+    ]
+    qualified.sort(key=lambda r: r["final_score"], reverse=True)
+    recommended = qualified[:top_n]
+
+    logger.info(
+        f"\n── Results: {len(recommended)}/{len(all_results)} recommended "
+        f"(min_score={min_score}, top_n={top_n}) ──"
+    )
+
+    # 构建返回数据
+    push_articles = []
+    for r in recommended:
+        original = next((a for a in all_articles if a.get("url") == r.get("url")), {})
+        push_articles.append({
+            "title": r["title"],
+            "account_name": r["account_name"],
+            "url": r["url"],
+            "summary": r["summary"],
+            "reason": r["reason"],
+            "tags": r.get("tags", []),
+            "category": r.get("category", ""),
+            "scores": r.get("scores", {}),
+            "final_score": r["final_score"],
+            "images": original.get("images", []),
+            "cover": original.get("cover", ""),
+        })
+
+    # 生成开场白（可选，对 skill 也有用）
+    intro = ""
+    if push_articles:
+        logger.info("Generating newsletter intro...")
+        intro = generate_intro(push_articles, config=config)
+        if intro:
+            logger.info(f"Intro: {intro[:80]}...")
+
+    logger.info("Skill mode done.")
+    return push_articles
+
+
 def _now_cst() -> str:
     cst = timezone(timedelta(hours=8))
     return datetime.now(cst).isoformat()
