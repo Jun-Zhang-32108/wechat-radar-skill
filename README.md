@@ -193,8 +193,21 @@ MIT
 
 ---
 
+## Credits & Acknowledgements
+
+本项目（wechat-radar-skill）由 **Jun-Zhang-32108** 维护，但核心功能与架构**重度参考并修改自** **Cathy** ([@cathyzhang0905](https://github.com/cathyzhang0905)) 的优秀开源项目 [**wechat-radar**](https://github.com/cathyzhang0905/wechat-radar.git)。
+
+- **原始项目**：https://github.com/cathyzhang0905/wechat-radar.git — 由 cathyzhang0905 独立开发，包含完整的微信公众号抓取、AI 评分、多渠道推送体系
+- **本 Skill 版本**：在原始项目基础上，封装了 Hermes Agent 适配层 (`skill_adapt.py`)、新增了命令行 `--config` 参数支持、以及一键安装脚本，方便在 Hermes 生态中直接调用
+
+特别感谢 cathyzhang0905 的开源贡献！如对原始项目感兴趣，请直接关注 [cathyzhang0905/wechat-radar](https://github.com/cathyzhang0905/wechat-radar.git)。
+
+---
+
 ## About the builder
 
-Built by **Cathy** ([@cathyzhang0905](https://github.com/cathyzhang0905)) — AI-native PM. Senior PM at DiDi, pivoting to AI-native product roles. I build tools at the intersection of [agent oversight](https://github.com/cathyzhang0905/agent-cockpit) and [personal information processing](https://github.com/cathyzhang0905).
+**原始作者**：**Cathy** ([@cathyzhang0905](https://github.com/cathyzhang0905)) — AI-native PM. Senior PM at DiDi, pivoting to AI-native product roles. I build tools at the intersection of [agent oversight](https://github.com/cathyzhang0905/agent-cockpit) and [personal information processing](https://github.com/cathyzhang0905).
 
-Interested in **agent collaboration / vertical agents / AI PM workflows / eval methodology**? Open an issue or reach me at [@cathyzhang0905](https://github.com/cathyzhang0905).
+**Skill 封装与适配**：**Jun-Zhang-32108**
+
+Interested in **agent collaboration / vertical agents / AI PM workflows / eval methodology**? Open an issue or reach the original author at [@cathyzhang0905](https://github.com/cathyzhang0905).

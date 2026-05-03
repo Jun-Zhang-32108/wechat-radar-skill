@@ -120,7 +120,7 @@ prefilter:
 schedule:
   cron:
     - "0 9 * * *"    # 每天 09:00
-    - "0 13 * * *"   # 每天 18:00
+    - "59 23 * * *"   # 每天 18:00
   log_file: /tmp/wechat-radar.log
 
 scoring:
