@@ -40,11 +40,24 @@ from notifier import (
 # 日志配置
 # ──────────────────────────────────────────────
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # 改为 DEBUG 以显示更详细的日志
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("main")
+
+# 同时保存日志到文件（便于排查问题）
+LOG_DIR = _script_dir / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+log_file_handler = logging.FileHandler(
+    LOG_DIR / f"debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+    encoding="utf-8"
+)
+log_file_handler.setLevel(logging.DEBUG)
+log_file_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+)
+logging.getLogger().addHandler(log_file_handler)
 
 STATE_FILE = _script_dir / "state.json"
 CONFIG_LOCAL = _script_dir / "config.yaml.local"
@@ -79,15 +92,77 @@ def save_scoring_log(all_results: list[dict]):
     LOG_DIR.mkdir(exist_ok=True)
     cst = timezone(timedelta(hours=8))
     date_str = datetime.now(cst).strftime("%Y-%m-%d")
-    log_file = LOG_DIR / f"scoring_log_{date_str}.json"
+    json_file = LOG_DIR / f"scoring_log_{date_str}.json"
 
     log_data = {
         "date": date_str,
         "total_articles": len(all_results),
         "articles": all_results,
     }
-    log_file.write_text(json.dumps(log_data, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info(f"Scoring log saved: {log_file}")
+    json_file.write_text(json.dumps(log_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info(f"Scoring log saved: {json_file}")
+
+    save_scoring_excel(all_results, date_str)
+
+
+def save_scoring_excel(all_results: list[dict], date_str: str):
+    """将评分结果保存为 Excel 文件，字段与 JSON 对齐"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        logger.warning("openpyxl 未安装，Excel 导出跳过。请运行 pip install openpyxl")
+        return
+
+    excel_file = LOG_DIR / f"scoring_log_{date_str}.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "scoring"
+
+    score_keys = sorted({
+        key
+        for result in all_results
+        for key in (result.get("scores") or {}).keys()
+    })
+
+    headers = [
+        "date",
+        "title",
+        "account_name",
+        "url",
+        "is_ad",
+        "summary",
+        "reason",
+        "tags",
+        "category",
+        "final_score",
+    ] + [f"score_{key}" for key in score_keys]
+    ws.append(headers)
+
+    for result in all_results:
+        tags = result.get("tags")
+        row = [
+            date_str,
+            result.get("title", ""),
+            result.get("account_name", ""),
+            result.get("url", ""),
+            result.get("is_ad", False),
+            result.get("summary", ""),
+            result.get("reason", ""),
+            ",".join(tags) if isinstance(tags, list) else (tags or ""),
+            result.get("category", ""),
+            result.get("final_score", ""),
+        ]
+        scores = result.get("scores") or {}
+        row.extend(scores.get(key, "") for key in score_keys)
+        ws.append(row)
+
+    for idx, _ in enumerate(headers, start=1):
+        col_letter = get_column_letter(idx)
+        ws.column_dimensions[col_letter].width = min(50, max(10, len(headers[idx - 1]) + 2))
+
+    wb.save(excel_file)
+    logger.info(f"Scoring excel saved: {excel_file}")
 
 
 # ──────────────────────────────────────────────

@@ -14,13 +14,28 @@ echo ""
 # ── Step 1: Python 环境 ──
 echo "[1/5] 检查 Python 环境..."
 if ! command -v python3 &> /dev/null; then
-    echo "❌ 未找到 python3，请先安装 Python 3.9+"
-    echo "   macOS: brew install python3"
-    echo "   Ubuntu: sudo apt install python3 python3-venv"
+    echo "❌ 未找到 python3，请先安装 Python 3.10+"
+    echo "   macOS: brew install python@3.10"
+    echo "   Ubuntu: sudo apt install python3.10 python3.10-venv"
     exit 1
 fi
 
 PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PYTHON_MAJOR=$(python3 -c "import sys; print(sys.version_info.major)")
+PYTHON_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
+
+# 检查 Python 版本是否 >= 3.10
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]); then
+    echo "❌ Python 版本过低: $PYTHON_VERSION (需要 >= 3.10)"
+    echo ""
+    echo "   请安装 Python 3.10 或更高版本："
+    echo "   macOS: brew install python@3.10"
+    echo "   Ubuntu: sudo apt install python3.10 python3.10-venv"
+    echo ""
+    echo "   安装后，请使用以下命令重新运行此脚本："
+    echo "   python3.10 setup.sh"
+    exit 1
+fi
 echo "   Python $PYTHON_VERSION ✓"
 
 # ── Step 2: 虚拟环境 + 依赖 ──

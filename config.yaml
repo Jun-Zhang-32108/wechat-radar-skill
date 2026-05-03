@@ -49,6 +49,11 @@ accounts:
   - 豪大说
   - 随机小分队
   - AI Hacker House
+  - CS的陋室
+  - 阿里云开发者
+  - 孔某人的低维认知
+  - 腾讯云开发者
+  - 腾讯技术工程
 
 profile:
   background: "简要描述你的背景，例如：计算机本科，3 年后端开发经验，目前在关注 AI 应用方向。"
@@ -114,7 +119,7 @@ prefilter:
 schedule:
   cron:
     - "0 9 * * *"    # 每天 09:00
-    - "0 18 * * *"   # 每天 18:00
+    - "0 13 * * *"   # 每天 18:00
   log_file: /tmp/wechat-radar.log
 
 scoring:
